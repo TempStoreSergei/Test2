@@ -26,7 +26,6 @@ const handlePdfInit = (pdf) => {
 </script>
 
 <template>
-  <div style="width: 100%">
     <PDF
       :page="page"
       src="/present.pdf"
@@ -34,7 +33,6 @@ const handlePdfInit = (pdf) => {
       @on-page-change="handlePageChange"
     >
     </PDF>
-  </div>
 </template>
 
 <style scoped>

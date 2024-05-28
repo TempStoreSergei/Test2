@@ -1,21 +1,20 @@
 <template>
-  <div class="pdf-vue3-main" style="height: 100%; position: relative; min-height: 10px">
-    <div class="pdf-vue3-container" style="height: 100%">
-      <div ref="scroller" class="pdf-vue3-scroller" style="height: 100%; overflow-y: auto"
-        :style="{ maxHeight: `${viewportHeight}px` }" @scroll="handleScroll">
-        <div class="pdf-vue3-canvas-container" ref="container" style="margin: 0 auto; width: 100%; position: relative;">
-          <canvas style="display: block; margin-left: auto; margin-right: auto; width: 100%;" v-for="item in totalPages"
-            :key="item" :ref="canvasRefs[item - 1]"></canvas>
+  <main class="pdf-viewer">
+    <transition name="fade">
+      <article v-if="loadRatio < 100" class="pdf-vue3-progress">
+        <div :style="{ width: `${loadRatio}%`}"></div>
+      </article>
+    </transition>
+    <section class="pdf-vue3-main">
+      <div ref="scroller" class="pdf-vue3-scroller" @scroll="handleScroll">
+        <div class="pdf-vue3-canvas-container" ref="container">
+          <div v-for="item in totalPages" :key="item" class="canvas-link-container">
+            <canvas class="pdf-canvas" :ref="canvasRefs[item - 1]"></canvas>
+          </div>
         </div>
       </div>
-    </div>
-    <div class="pdf-vue3-progress"
-      style="position: absolute; left: 0; top: 0; width: 100%; user-select: none; pointer-events: none;">
-      <div style="width: 0%; height: 4px; transition: all 0.2s"
-        :style="{ width: `${loadRatio}%`, opacity: loadRatio < 100 ? '1' : '0', backgroundColor: '#87ceeb' }">
-      </div>
-    </div>
-  </div>
+    </section>
+  </main>
 </template>
 
 <script setup lang="ts">
@@ -24,41 +23,38 @@ import type { PDFDocumentProxy } from "./index";
 
 let GlobalWorkerOptions: any, getDocument: any;
 const dpr = ref(1);
-const linkAnnotations = ref(['test', 'test2']);
-
 
 const props = withDefaults(
-  defineProps<{
-    src: string | Uint8Array;
-    httpHeaders?: Record<string, any>;
-    withCredentials?: boolean;
-    password?: string;
-    useSystemFonts?: boolean;
-    stopAtErrors?: boolean;
-    disableFontFace?: boolean;
-    disableRange?: boolean;
-    disableStream?: boolean;
-    disableAutoFetch?: boolean;
-    // --custom--
-    scrollThreshold?: number;
-    page?: number;
-    cMapUrl?: string;
-  }>(),
-  {
-    src: undefined,
-    httpHeaders: undefined,
-    withCredentials: undefined,
-    password: undefined,
-    useSystemFonts: undefined,
-    stopAtErrors: undefined,
-    disableFontFace: undefined,
-    disableRange: undefined,
-    disableStream: undefined,
-    disableAutoFetch: undefined,
-    scrollThreshold: 300,
-    page: 1,
-    cMapUrl: "https://unpkg.com/pdfjs-dist@3.7.107/cmaps/",
-  }
+    defineProps<{
+      src: string | Uint8Array;
+      httpHeaders?: Record<string, any>;
+      withCredentials?: boolean;
+      password?: string;
+      useSystemFonts?: boolean;
+      stopAtErrors?: boolean;
+      disableFontFace?: boolean;
+      disableRange?: boolean;
+      disableStream?: boolean;
+      disableAutoFetch?: boolean;
+      scrollThreshold?: number;
+      page?: number;
+      cMapUrl?: string;
+    }>(),
+    {
+      src: undefined,
+      httpHeaders: undefined,
+      withCredentials: undefined,
+      password: undefined,
+      useSystemFonts: undefined,
+      stopAtErrors: undefined,
+      disableFontFace: undefined,
+      disableRange: undefined,
+      disableStream: undefined,
+      disableAutoFetch: undefined,
+      scrollThreshold: 300,
+      page: 1,
+      cMapUrl: "https://unpkg.com/pdfjs-dist@3.7.107/cmaps/",
+    }
 );
 
 const emit = defineEmits<{
@@ -106,7 +102,7 @@ const getDoc = () => {
     option.url = props.src;
   } else {
     const binaryData = atob(
-      props.src.includes(",") ? props.src.split(",")[1] : props.src
+        props.src.includes(",") ? props.src.split(",")[1] : props.src
     );
     const byteArray = new Uint8Array(binaryData.length);
     for (let i = 0; i < binaryData.length; i++) {
@@ -146,18 +142,18 @@ const renderComplete = ref(false);
 
 const extractHyperlinksFromPage = async (page) => {
   const annotations = await page.getAnnotations();
-  console.log(annotations)
   const hyperlinks = annotations
-    .filter((annotation) => annotation.subtype === 'Link')
-    .map((annotation) => {
-      return {
-        url: annotation.url || annotation.dest || 'No Text',
-        boundingBox: annotation.rect, // Bounding box of the linked element
-      };
-    });
+      .filter((annotation) => annotation.subtype === 'Link')
+      .map((annotation) => {
+        return {
+          url: annotation.url || annotation.dest || 'No Text',
+          boundingBox: annotation.rect, // Bounding box of the linked element
+        };
+      });
 
   return hyperlinks;
 };
+
 const renderPDF = async () => {
   renderComplete.value = false;
   try {
@@ -174,6 +170,7 @@ const renderPDF = async () => {
   } catch (error) {
     console.error("Error loadingTask PDF:", error);
   }
+  const pageToNumMap = {};
   let calcH = 0;
   for (let i = 0; i < totalPages.value; i++) {
     try {
@@ -181,51 +178,72 @@ const renderPDF = async () => {
 
       // Render the page content onto the canvas
       const canvas = canvasRefs.value[i].value[0];
-      var viewport = page.getViewport({ scale: 1 });
-      var scale =
-        ((canvas.parentNode as HTMLDivElement).clientWidth - 4) /
-        viewport.width;
+      const viewport = page.getViewport({ scale: 1 });
+      const scale =
+          ((canvas.parentNode as HTMLDivElement).clientWidth - 4) /
+          viewport.width;
       const context = canvas.getContext("2d");
       const scaledViewport = page.getViewport({ scale: scale * dpr.value });
       canvas.width = scaledViewport.width;
       canvas.height = scaledViewport.height;
       itemHeightList.value[i] = calcH +=
-        scaledViewport.height / dpr.value;
+          scaledViewport.height / dpr.value;
       await page.render({
         canvasContext: context as CanvasRenderingContext2D,
         viewport: scaledViewport,
       });
 
+      pageToNumMap[`${page.ref.num}`] = i + 1;
+
       // Render hyperlinks on the canvas container
       const hyperlinks = await extractHyperlinksFromPage(page);
-hyperlinks.forEach((link) => {
-  const { url, boundingBox } = link;
-  // Ensure URL is properly encoded
-  const encodedUrl = encodeURI(url);
-  const linkElement = document.createElement('a');
-  // Correction for web use: check if the URL is relative or absolute
-  linkElement.href = `#${encodedUrl}`;
-  linkElement.textContent = url; // Or any other text you want to display
-  linkElement.style.position = 'absolute';
-  linkElement.style.left = boundingBox[0] + 'px'; // Adjust positioning based on bounding box
-  linkElement.style.top = boundingBox[1] + 'px'; // Adjust positioning based on bounding box
-  linkElement.style.width = boundingBox[2] - boundingBox[0] + 'px'; // Adjust width based on bounding box
-  linkElement.style.height = boundingBox[3] - boundingBox[1] + 'px'; // Adjust height based on bounding box
-  // Apply styles to make it look like a hyperlink
-  linkElement.style.color = 'blue';
-  linkElement.style.textDecoration = 'underline';
-  linkElement.style.cursor = 'pointer';
-  // Append the link to the canvas container
-  canvas.parentNode.appendChild(linkElement);
-});
+      console.log('hyperlinks', hyperlinks);
+      hyperlinks.forEach((link) => {
+        const { url, boundingBox } = link;
+        const linkElement = document.createElement('a');
+        linkElement.className = 'link-annotation';
+
+        if (url.startsWith('http')) {
+          // External link
+          linkElement.href = url;
+          linkElement.target = '_blank';
+        } else {
+          // Internal link
+          linkElement.href = `#${url}`;
+          linkElement.onclick = (event) => {
+            event.preventDefault();
+            pdf.getDestination(url).then(destination => {
+              const pageNumber = pageToNumMap[destination[0].num];
+              const scrollToOffset = (itemHeightList.value[pageNumber - 1] ?? 0) + 2;
+              scroller.value.scrollTo({
+                top: scrollToOffset,
+                behavior: 'smooth'  // Enable smooth scrolling
+              });
+            });
+          };
+        }
+
+        const [x1, y1, x2, y2] = boundingBox;
+        const x = x1 * scale;
+        const y = scaledViewport.height - y2 * scale;
+        const width = (x2 - x1) * scale;
+        const height = (y2 - y1) * scale;
+
+        linkElement.style.left = `${x}px`;
+        linkElement.style.top = `${y}px`;
+        linkElement.style.width = `${width}px`;
+        linkElement.style.height = `${height}px`;
+
+        canvas.parentNode.appendChild(linkElement);
+      });
 
     } catch (error) {
       console.error("Error rendering PDF:", error);
     }
     if (
-      props.page &&
-      (i === props.page - 1 ||
-        (props.page > totalPages.value && i === totalPages.value - 1))
+        props.page &&
+        (i === props.page - 1 ||
+            (props.page > totalPages.value && i === totalPages.value - 1))
     ) {
       scroller.value.scrollTo(0, (itemHeightList.value[i - 1] ?? 0) + 2);
     }
@@ -234,7 +252,6 @@ hyperlinks.forEach((link) => {
     }
   }
 };
-
 
 const viewportHeight = ref(0);
 const isScrolling = ref(false);
@@ -249,8 +266,8 @@ const handleScroll = (event: any) => {
   scrollOffset.value = event.target.scrollTop;
   emit("onScroll", event.target.scrollTop);
   if (
-    scroller.value.scrollTop + scroller.value.offsetHeight >=
-    scroller.value.scrollHeight - 10
+      scroller.value.scrollTop + scroller.value.offsetHeight >=
+      scroller.value.scrollHeight - 10
   ) {
     currentPage.value = itemHeightList.value.length;
     return;
@@ -269,8 +286,8 @@ let timer: number;
 const renderPDFWithDebounce = () => {
   viewportHeight.value = window.innerHeight;
   if (
-    Math.abs(innerWidth.value - window.innerWidth) > 1 &&
-    Math.abs(containerWidth.value - container.value.offsetWidth) > 1
+      Math.abs(innerWidth.value - window.innerWidth) > 1 &&
+      Math.abs(containerWidth.value - container.value.offsetWidth) > 1
   ) {
     setWidth();
   } else {
@@ -296,16 +313,16 @@ onBeforeMount(async () => {
   GlobalWorkerOptions = pdfjs.GlobalWorkerOptions;
   getDocument = pdfjs.getDocument;
   const workerSrc = new URL(
-    "../../node_modules/pdfjs-dist/legacy/build/pdf.worker.min.js",
-    import.meta.url
+      "../../node_modules/pdfjs-dist/legacy/build/pdf.worker.min.js",
+      import.meta.url
   ).href;
   GlobalWorkerOptions.workerSrc = workerSrc;
   dpr.value = window.devicePixelRatio || 1;
   viewportHeight.value = window.innerHeight;
   setWidth();
   if (
-    (typeof props.src === "string" && props.src.length > 0) ||
-    props.src instanceof Uint8Array
+      (typeof props.src === "string" && props.src.length > 0) ||
+      props.src instanceof Uint8Array
   ) {
     getDoc();
     renderPDF();
@@ -314,20 +331,20 @@ onBeforeMount(async () => {
   }
 
   watch(
-    () => props.src,
-    (src: string | Uint8Array) => {
-      if (
-        (typeof src === "string" && src.length > 0) ||
-        src instanceof Uint8Array
-      ) {
-        getDoc();
-        renderPDF();
-        if (!isAddEvent.value) {
-          window.addEventListener("resize", renderPDFWithDebounce);
-          isAddEvent.value = true;
+      () => props.src,
+      (src: string | Uint8Array) => {
+        if (
+            (typeof src === "string" && src.length > 0) ||
+            src instanceof Uint8Array
+        ) {
+          getDoc();
+          renderPDF();
+          if (!isAddEvent.value) {
+            window.addEventListener("resize", renderPDFWithDebounce);
+            isAddEvent.value = true;
+          }
         }
       }
-    }
   );
 });
 
@@ -344,7 +361,7 @@ onUnmounted(() => {
   clearTimeout(scrollTimer);
   cancelAnimationFrame(animFrameId);
   isAddEvent.value &&
-    window.removeEventListener("resize", renderPDFWithDebounce);
+  window.removeEventListener("resize", renderPDFWithDebounce);
 });
 // --- back to top ---
 let animFrameId: number;
@@ -354,44 +371,109 @@ const easeOutCubic = (progress: number) => {
 
 let waitToPageFun: Function | null = null;
 watch(
-  () => props.page,
-  (page: number) => {
-    if (props.page === currentPage.value) {
-      return;
-    }
-    if (page > itemHeightList.value.length) {
-      page = itemHeightList.value.length;
-    }
-    if (renderComplete.value) {
-      scroller.value.scrollTo(0, (itemHeightList.value[page - 2] ?? 0) + 2);
-    } else {
-      waitToPageFun = () => {
+    () => props.page,
+    (page: number) => {
+      if (props.page === currentPage.value) {
+        return;
+      }
+      if (page > itemHeightList.value.length) {
+        page = itemHeightList.value.length;
+      }
+      if (renderComplete.value) {
         scroller.value.scrollTo(0, (itemHeightList.value[page - 2] ?? 0) + 2);
-      };
+      } else {
+        waitToPageFun = () => {
+          scroller.value.scrollTo(0, (itemHeightList.value[page - 2] ?? 0) + 2);
+        };
+      }
     }
-  }
 );
 
- 
 watch(
-  () => renderComplete.value,
-  (complete: boolean) => {
-    complete && waitToPageFun?.();
-    waitToPageFun = null;
-  }
+    () => renderComplete.value,
+    (complete: boolean) => {
+      complete && waitToPageFun?.();
+      waitToPageFun = null;
+    }
 );
+
 watch(
-  () => currentPage.value,
-  (page: number) => {
-    emit("onPageChange", page);
-  }
+    () => currentPage.value,
+    (page: number) => {
+      emit("onPageChange", page);
+    }
 );
 </script>
 
 
 
 <style>
+.pdf-vue3-main {
+  height: 100%;
+  width: 100%;
+}
+
+.pdf-viewer {
+  height: 100vh;
+  width: 100vw;
+}
+
+.pdf-vue3-scroller {
+  height: 100%;
+  width: 100%;
+  overflow-y: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  scroll-snap-type: y mandatory;
+}
+
+.link-annotation {
+  background-color: rgba(255, 255, 0, 0.3);
+  border: 1px solid #00f;
+  display: block;
+  position: absolute;
+}
+
 .pdf-vue3-scroller::-webkit-scrollbar {
-  display: none;  
+  display: none;
+}
+
+.pdf-vue3-canvas-container {
+  width: 100%;
+  height: 100%;
+}
+
+.fade-enter-active, .fade-leave-active {
+  transition: opacity 0.5s;
+}
+.fade-enter, .fade-leave-to {
+  opacity: 0;
+}
+
+.pdf-canvas {
+  display: block;
+  width: 100%;
+  max-height: 100%;
+
+  scroll-snap-align: start;
+}
+
+.canvas-link-container {
+  position: relative;
+}
+
+.pdf-vue3-progress {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 100%;
+  user-select: none;
+  pointer-events: none;
+}
+
+.pdf-vue3-progress div {
+  height: 4px;
+  transition: all 0.2s;
+  background-color: #87ceeb;
 }
 </style>
