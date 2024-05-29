@@ -1,8 +1,8 @@
 <template>
   <main class="pdf-viewer">
     <transition name="fade">
-      <article v-if="loadRatio < 100" class="pdf-vue3-progress">
-        <div :style="{ width: `${loadRatio}%`}"></div>
+      <article v-if="!renderComplete" class="pdf-vue3-progress">
+        <div></div>
       </article>
     </transition>
     <section class="pdf-vue3-main">
@@ -18,7 +18,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onUnmounted, Ref, computed, watch, onBeforeMount } from "vue";
+import { ref, onUnmounted, Ref, watch, onBeforeMount } from "vue";
 import type { PDFDocumentProxy } from "./index";
 
 let GlobalWorkerOptions: any, getDocument: any;
@@ -142,7 +142,6 @@ const renderComplete = ref(false);
 
 const extractHyperlinksFromPage = async (page) => {
   const annotations = await page.getAnnotations();
-  console.log(annotations);
   const hyperlinks = annotations
       .filter((annotation) => annotation.subtype === 'Link' || annotation.subtype === 'Widget')
       .map((annotation) => {
@@ -389,9 +388,6 @@ onUnmounted(() => {
 });
 // --- back to top ---
 let animFrameId: number;
-const easeOutCubic = (progress: number) => {
-  return 1 - Math.pow(1 - progress, 3);
-};
 
 let waitToPageFun: Function | null = null;
 watch(
@@ -487,6 +483,7 @@ watch(
 .pdf-vue3-progress {
   position: fixed;
   left: 0;
+  z-index: 10;
   top: 0;
   width: 100%;
   user-select: none;
@@ -495,7 +492,16 @@ watch(
 
 .pdf-vue3-progress div {
   height: 4px;
-  transition: all 0.2s;
+  animation: progressAnimation 2s infinite;
   background-color: #87ceeb;
+}
+
+@keyframes progressAnimation {
+  0% {
+    width: 0;
+  }
+  100% {
+    width: 100%;
+  }
 }
 </style>
