@@ -237,7 +237,7 @@ const renderPDF = async () => {
             event.preventDefault();
             pdf.getDestination(url).then(destination => {
               const pageNumber = pageToNumMap[destination[0].num];
-              const scrollToOffset = (itemHeightList.value[pageNumber - 1] ?? 0);
+              const scrollToOffset = (itemHeightList.value[pageNumber - 2] ?? 0);
               scroller.value.scrollTo({
                 top: scrollToOffset,
                 behavior: 'smooth'  // Enable smooth scrolling
