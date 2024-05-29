@@ -142,10 +142,12 @@ const renderComplete = ref(false);
 
 const extractHyperlinksFromPage = async (page) => {
   const annotations = await page.getAnnotations();
+  console.log(annotations);
   const hyperlinks = annotations
-      .filter((annotation) => annotation.subtype === 'Link')
+      .filter((annotation) => annotation.subtype === 'Link' || annotation.subtype === 'Widget')
       .map((annotation) => {
         return {
+          action: annotation.action || 'No Action',
           url: annotation.url || annotation.dest || 'No Text',
           boundingBox: annotation.rect, // Bounding box of the linked element
         };
@@ -199,22 +201,44 @@ const renderPDF = async () => {
       const hyperlinks = await extractHyperlinksFromPage(page);
       console.log('hyperlinks', hyperlinks);
       hyperlinks.forEach((link) => {
-        const { url, boundingBox } = link;
+        const { url, boundingBox, action } = link;
         const linkElement = document.createElement('a');
         linkElement.className = 'link-annotation';
-
+        console.log()
         if (url.startsWith('http')) {
           // External link
-          linkElement.href = url;
+          linkElement.href = '#';
           linkElement.target = '_blank';
-        } else {
+        } else if (action !== 'No Action') {
+          // Action link
+          linkElement.href = `#`;
+          linkElement.onclick = (event) => {
+            event.preventDefault();
+            if(action === "NextPage") {
+              currentPage.value += 1;
+              scrollOffset.value = (itemHeightList.value[currentPage.value - 2] ?? 0);
+              scroller.value.scrollTo({
+                top: scrollOffset.value,
+                behavior: 'smooth'  // Enable smooth scrolling
+              });
+            } else {
+              currentPage.value -= 1;
+              scrollOffset.value = (itemHeightList.value[currentPage.value - 1] ?? 0);
+              scroller.value.scrollTo({
+                top: scrollOffset.value,
+                behavior: 'smooth'  // Enable smooth scrolling
+              });
+            }
+          };
+        }
+        else {
           // Internal link
           linkElement.href = `#${url}`;
           linkElement.onclick = (event) => {
             event.preventDefault();
             pdf.getDestination(url).then(destination => {
               const pageNumber = pageToNumMap[destination[0].num];
-              const scrollToOffset = (itemHeightList.value[pageNumber - 1] ?? 0) + 2;
+              const scrollToOffset = (itemHeightList.value[pageNumber - 1] ?? 0);
               scroller.value.scrollTo({
                 top: scrollToOffset,
                 behavior: 'smooth'  // Enable smooth scrolling
@@ -428,8 +452,6 @@ watch(
 }
 
 .link-annotation {
-  background-color: rgba(255, 255, 0, 0.3);
-  border: 1px solid #00f;
   display: block;
   position: absolute;
 }
